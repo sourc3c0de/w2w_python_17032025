@@ -10,16 +10,15 @@ class Settings(BaseSettings):
     DEBUG_MODE: bool = os.getenv("DEBUG_MODE", "False").lower() == "true"
     
     # Database configuration
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./test.db")
-    
-    # JWT settings
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key")
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://username:password@localhost:5432/whats2want")
     
     # Whatsapp API settings
     VERIFY_TOKEN: str = os.getenv("VERIFY_TOKEN", "your-verify-token")
     WHATSAPP_ACCESS_TOKEN: str = os.getenv("WHATSAPP_ACCESS_TOKEN", "your-access-token")
     WHATSAPP_PHONE_ID: str = os.getenv("WHATSAPP_PHONE_ID", "your-phone-id")
+    
+    # OpenAI API settings
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "your-openai-api-key")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 settings = Settings()

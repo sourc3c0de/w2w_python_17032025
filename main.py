@@ -4,15 +4,20 @@ import uvicorn
 import logging
 from app.config import settings
 from app.routers import health, whatsapp
+from app.database.init_db import create_tables
 
-# Configuirar logging
+# Configurar logging
 logging.basicConfig(
     level=logging.INFO if settings.DEBUG_MODE else logging.WARNING,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
+# Inicializar tablas de base de datos (esto se puede comentar después de la primera ejecución)
+# o preferiblemente usar Alembic para migraciones
+create_tables()
+
 app = FastAPI(
-    title="Whats2Want API",
+    title=settings.APP_NAME,
     description="Backend API for Whats2Want",
     version="0.1.0"
 )
@@ -28,7 +33,7 @@ app.add_middleware(
 
 @app.get("/")
 async def read_root():
-    return {"message": f"Welcome to {settings.APP_NAME} API"}
+    return {"message": f"Welcome to {settings.APP_NAME}"}
 
 # Incluir routers
 app.include_router(health.router, prefix="/api/v1")

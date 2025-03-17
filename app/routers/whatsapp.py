@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
+from sqlalchemy.orm import Session
 import logging
 from app.controllers.whatsapp_controller import WhatsAppController
+from app.database.db import get_db
 
 router = APIRouter(
     prefix="/whatsapp",
@@ -29,13 +31,13 @@ async def verify_webhook(request: Request):
     
 # Endpoint para recibir mensajes de WhatsApp
 @router.post("/webhook")
-async def receive_message(request: Request):
+async def receive_message(request: Request, db: Session = Depends(get_db)):
     """Recibe y procesa los eventos del webhook de WhatsApp"""
     try:
         webhook_data = await request.json()
         logger.info("Received webhook data")
         
-        return await WhatsAppController.handle_webhook_data(webhook_data)
+        return await WhatsAppController.handle_webhook_data(webhook_data, db)
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}", exc_info=True)
         return {"status": "error", "message": str(e)}
