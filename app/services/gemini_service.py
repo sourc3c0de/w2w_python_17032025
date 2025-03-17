@@ -1,6 +1,6 @@
 import google.generativeai as genai
 import logging
-from typing import List, Dict
+from typing import List, Dict, Optional
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -18,22 +18,30 @@ Sé amable y entusiasta sobre nuestros platos.
 class GeminiService:
     """Servicio para interactuar con la API de Google Gemini."""
     @staticmethod
-    async def generate_response(message: str, conversation_hisotory: List[Dict[str, str]] = None) -> str:
-        """Genera una respuesta usando Google Gemini basada en el mensaje y el historia de la conversación."""
+    async def generate_response(
+        message: str, 
+        conversation_history: List[Dict[str, str]] = None,
+        system_prompt: Optional[str] = None
+    ) -> str:
+        """Genera una respuesta usando Google Gemini basada en el mensaje y el historial de conversación."""
         try:
             # Inicializar modelo
             model = genai.GenerativeModel(settings.GOOGLE_GEMINI_MODEL)
             
-            # Construir un prompt completo que incluya el historial y el contexto del sistema
-            system_context = getattr(settings, "GEMINI_SYSTEM_CONTEXT", DEFAULT_SYSTEM_CONTEXT)
+            # Usar el prompt personalizado o el predeterminado
+            system_context = system_prompt if system_prompt else getattr(
+                settings, 
+                "GEMINI_SYSTEM_CONTEXT", 
+                DEFAULT_SYSTEM_CONTEXT
+            )
             
             # Construir el prompt completo:
             full_prompt = f"{system_context}\n\n"
             
             # Añadir historial de conversación si existe
-            if conversation_hisotory:
+            if conversation_history:
                 full_prompt += "Historial de conversación:\n"
-                for msg in conversation_hisotory:
+                for msg in conversation_history:
                     role = "Usuario" if msg["role"] == "user" else "Asistente"
                     full_prompt += f"{role}: {msg['content']}\n"
                 full_prompt += "\n"

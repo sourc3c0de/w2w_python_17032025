@@ -14,10 +14,12 @@ class ConversationSession(Base):
     is_active = Column(Boolean, default=True)
     status = Column(String(50), default="in_progress")  # in_progress, completed, timed_out, closed_by_user
     context = Column(String(500), nullable=True)  # información sobre el propósito de la sesión
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=True)
     
     # Relaciones
     contact = relationship("Contact", back_populates="sessions")
     messages = relationship("Message", back_populates="session")
+    business = relationship("Business", back_populates="sessions")
     
     def __repr__(self):
         return f"<ConversationSession(id={self.id}, contact_id={self.contact_id}, active={self.is_active})>"

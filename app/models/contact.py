@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from app.database.db import Base
@@ -18,6 +18,10 @@ class Contact(Base):
     
     # Añadir esto a tu modelo Contact existente
     sessions = relationship("ConversationSession", back_populates="contact")
+    
+    # Añadir esto al modelo Contact
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=True)
+    business = relationship("Business", back_populates="contacts")
     
     def __repr__(self):
         return f"<Contact(id={self.id}, name={self.name}, phone_number={self.phone_number})>"

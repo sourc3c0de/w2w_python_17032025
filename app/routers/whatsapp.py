@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 import logging
 from app.controllers.whatsapp_controller import WhatsAppController
 from app.database.db import get_db
+from app.repositories.business_repository import BusinessRepository
 
 router = APIRouter(
     prefix="/whatsapp",
@@ -41,3 +42,22 @@ async def receive_message(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error processing webhook: {str(e)}", exc_info=True)
         return {"status": "error", "message": str(e)}
+
+@router.post("/webhook/{business_id}")
+async def webhook_business(
+    business_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Webhook para recibir mensajes de WhatsApp para un negocio específico
+    """
+    # Verificar que el negocio existe
+    business = BusinessRepository.get_by_id(db, business_id)
+    if not business:
+        raise HTTPException(status_code=404, detail="Negocio no encontrado")
+    
+    # Procesar la solicitud de webhook
+    data = await request.json()
+    result = await WhatsAppController.handle_webhook_data(data, db, business_id)
+    return result

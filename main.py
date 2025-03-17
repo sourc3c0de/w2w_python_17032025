@@ -4,7 +4,7 @@ import uvicorn
 import logging
 import asyncio
 from app.config import settings
-from app.routers import health, whatsapp
+from app.routers import business, health, whatsapp
 from app.database.init_db import create_tables
 from app.tasks.session_tasks import start_session_cleanup_task
 from contextlib import asynccontextmanager
@@ -62,6 +62,7 @@ async def read_root():
 # Incluir routers
 app.include_router(health.router, prefix="/api/v1")
 app.include_router(whatsapp.router, prefix="/api/v1")
+app.include_router(business.router, prefix="/api/v1")
 
 if __name__ == "__main__":
     port = int(settings.PORT) if settings.PORT else 8000

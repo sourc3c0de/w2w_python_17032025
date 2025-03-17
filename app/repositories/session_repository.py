@@ -71,11 +71,36 @@ class SessionRepository:
         return session
     
     @staticmethod
-    def get_or_create_active_session(db: DBSession, contact_id: int) -> ConversationSession:
-        """Obtiene la sesión activa o crea una nueva si no existe"""
+    def get_or_create_active_session(
+        db: DBSession, 
+        contact_id: int,
+        business_id: Optional[int] = None
+    ) -> ConversationSession:
+        """
+        Obtiene la sesión activa o crea una nueva si no existe
+        
+        Args:
+            db: Sesión de base de datos
+            contact_id: ID del contacto
+            business_id: ID del negocio (opcional)
+            
+        Returns:
+            ConversationSession: Sesión activa
+        """
         active_session = SessionRepository.get_active_session(db, contact_id)
         if not active_session:
-            active_session = SessionRepository.create(db, contact_id)
+            active_session = ConversationSession(
+                contact_id=contact_id,
+                business_id=business_id,
+                started_at=datetime.now(timezone.utc),
+                last_activity=datetime.now(timezone.utc),
+                is_active=True,
+                status="in_progress"
+            )
+            db.add(active_session)
+            db.commit()
+            db.refresh(active_session)
+            logger.info(f"Creada nueva sesión {active_session.id} para el contacto {contact_id}")
         return active_session
     
     @staticmethod

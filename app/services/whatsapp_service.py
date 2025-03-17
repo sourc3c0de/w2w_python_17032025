@@ -13,13 +13,15 @@ from app.models.whatsapp_model import (
 from app.services.gemini_service import GeminiService
 # Importar el repositorio de sesiones
 from app.repositories.session_repository import SessionRepository
+# Añadir en los imports
+from app.repositories.business_repository import BusinessRepository
 
 logger = logging.getLogger(__name__)
 
 class WhatsAppService:
     """ Servicio para interactuar con la API de WhatsApp """
     @staticmethod
-    async def process_message(message: Dict[str, Any], value: Dict[str, Any], db: Session):
+    async def process_message(message: Dict[str, Any], value: Dict[str, Any], db: Session, business_id: int = None):
         """ Procesa los mensajes entrantes de WhatsApp """
         try:
             message_type = message.get("type")
@@ -44,14 +46,31 @@ class WhatsAppService:
             except Exception as e:
                 logger.warning(f"Error extracting profile info: {e}", exc_info=True)
             
-            # Obtener o crear contacto
-            contact = ContactRepository.get_or_create(db, sender_id, sender_id, profile_name)
+            # Si se proporciona business_id, verificar que existe
+            business = None
+            if business_id:
+                business = BusinessRepository.get_by_id(db, business_id)
+                if not business:
+                    logger.warning(f"Business ID {business_id} no encontrado, usando configuración predeterminada")
+            
+            # Obtener o crear contacto (ahora con business_id)
+            contact = ContactRepository.get_or_create(
+                db, 
+                sender_id, 
+                sender_id, 
+                profile_name, 
+                business_id=business_id if business else None
+            )
             
             # Cerrar sesiones inactivas para todos los usuarios (cada vez que alguien envía un mensaje)
             SessionRepository.close_inactive_sessions(db, timeout_minutes=30)
             
-            # Obtener o crear una sesión activa para este contacto
-            active_session = SessionRepository.get_or_create_active_session(db, contact.id)
+            # Obtener o crear una sesión activa para este contacto (con business_id)
+            active_session = SessionRepository.get_or_create_active_session(
+                db, 
+                contact.id, 
+                business_id=business_id if business else None
+            )
             
             # Procesar según tipo de mensaje
             content = ""
@@ -98,8 +117,17 @@ class WhatsAppService:
                         "content": msg.content
                     })
                 
-                # Generar respuesta usando Gemini
-                ai_response = await GeminiService.generate_response(content, conversation_history)
+                # Al generar respuesta con Gemini, usar el prompt personalizado del negocio si existe
+                system_prompt = None
+                if business and business.system_prompt:
+                    system_prompt = business.system_prompt
+                
+                # Generar respuesta usando Gemini (con system_prompt personalizado)
+                ai_response = await GeminiService.generate_response(
+                    content, 
+                    conversation_history, 
+                    system_prompt=system_prompt
+                )
                 
                 # Enviar respuesta a través de WhatsApp
                 response_data = await WhatsAppService.send_message(sender_id, ai_response)
