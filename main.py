@@ -1,6 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import logging
+from app.config import settings
+from app.routers import health, whatsapp
+
+# Configuirar logging
+logging.basicConfig(
+    level=logging.INFO if settings.DEBUG_MODE else logging.WARNING,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
 app = FastAPI(
     title="Whats2Want API",
@@ -19,11 +28,12 @@ app.add_middleware(
 
 @app.get("/")
 async def read_root():
-    return {"message": "Welcome to Whats2Want API"}
+    return {"message": f"Welcome to {settings.APP_NAME} API"}
 
-@app.get("/api/health")
-async def health_check():
-    return {"status": "healthy"}
+# Incluir routers
+app.include_router(health.router, prefix="/api/v1")
+app.include_router(whatsapp.router, prefix="/api/v1")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(settings.PORT) if settings.PORT else 8000
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=settings.DEBUG_MODE)
