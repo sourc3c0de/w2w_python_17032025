@@ -6,7 +6,7 @@ from app.config import settings
 # Configuración del engine de SQLAlchemy
 engine = create_engine(
     settings.DATABASE_URL,
-    echo=settings.DEBUG_MODE, # Mostrar SQL generado en consola si estamos en modo debug
+    #echo=settings.DEBUG_MODE, # Mostrar SQL generado en consola si estamos en modo debug
     pool_pre_ping=True, # Verificar conexión antes de usarla
 )
 

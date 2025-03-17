@@ -20,5 +20,9 @@ class Settings(BaseSettings):
     # OpenAI API settings
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "your-openai-api-key")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    
+    # Gemini API settings
+    GOOGLE_GEMINI: str = os.getenv("GOOGLE_GEMINI", "your-gemini-api-key")
+    GOOGLE_GEMINI_MODEL: str = os.getenv("GOOGLE_GEMINI_MODEL", "gemini-2.0-flash")
 
 settings = Settings()

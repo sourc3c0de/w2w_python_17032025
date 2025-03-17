@@ -10,12 +10,12 @@ from app.models.whatsapp_model import (
     WhatsAppSendMessage,
     WhatsAppTextContent
 )
+from app.services.gemini_service import GeminiService
 
 logger = logging.getLogger(__name__)
 
 class WhatsAppService:
     """ Servicio para interactuar con la API de WhatsApp """
-    
     @staticmethod
     async def process_message(message: Dict[str, Any], value: Dict[str, Any], db: Session):
         """ Procesa los mensajes entrantes de WhatsApp """
@@ -66,12 +66,26 @@ class WhatsAppService:
                 status="received"
             )
             
-            # Responder con un simple eco (sin OpenAI)
+            # Solo procesamos con Gemini si es mensaje de texto
             if message_type == "text":
-                response_text = f"Echo: {content}"
-                # Enviar respuesta
-                response_data = await WhatsAppService.send_message(sender_id, response_text)
+                # Obtener historial de conversación
+                messages = MessageRepository.get_conversation_history(db, contact.id)
                 
+                # Formatear el mensaje para la API de Gemini
+                conversation_history = []
+                for msg in messages:
+                    role = "user" if msg.direction == "incoming" else "assistant"
+                    conversation_history.append({
+                        "role": role,
+                        "content": msg.content
+                    })
+                
+                # Generar respuesta usando Gemini
+                ai_response = await GeminiService.generate_response(content, conversation_history)
+                
+                # Enviar respuesta a través de WhatsApp
+                response_data = await WhatsAppService.send_message(sender_id, ai_response)
+                                
                 # Guardar mensaje de respuesta en BD
                 if response_data and "messages" in response_data:
                     outgoing_wa_id = response_data.get("messages", [{}])[0].get("id", "unknown")
@@ -81,9 +95,11 @@ class WhatsAppService:
                         contact_id=contact.id,
                         direction="outgoing",
                         message_type="text",
-                        content=response_text,
+                        content=ai_response,
                         timestamp=datetime.now(timezone.utc),
-                        status="sent"
+                        status="sent",
+                        ai_processed=True,
+                        ai_response=ai_response
                     )
         
         except Exception as e:
