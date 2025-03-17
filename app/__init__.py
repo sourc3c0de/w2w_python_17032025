@@ -1,0 +1,1 @@
+# This file can be empty, it tells Python that 'app' is a package
