@@ -17,9 +17,11 @@ class Message(Base):
     ai_processed = Column(Boolean, default=False)
     ai_response = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    session_id = Column(Integer, ForeignKey("conversation_sessions.id"), nullable=True)
     
     # Relación con contacto
     contact = relationship("Contact", back_populates="messages")
+    session = relationship("ConversationSession", back_populates="messages")
     
     def __repr__(self):
         return f"<Message(id={self.id}, type={self.message_type}, direction={self.direction})>"

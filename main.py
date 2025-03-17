@@ -2,9 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import logging
+import asyncio
 from app.config import settings
 from app.routers import health, whatsapp
 from app.database.init_db import create_tables
+from app.tasks.session_tasks import start_session_cleanup_task
+from contextlib import asynccontextmanager
 
 # Configurar logging
 logging.basicConfig(
@@ -29,6 +32,27 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle startup and shutdown events"""
+    # Start background tasks on startup
+    cleanup_task = asyncio.create_task(start_session_cleanup_task())
+    yield
+    # Clean up on shutdown if needed
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
+
+# Use the lifespan context manager when creating the FastAPI app
+app = FastAPI(
+    title=settings.APP_NAME,
+    description="Backend API for Whats2Want",
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 @app.get("/")

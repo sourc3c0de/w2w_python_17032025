@@ -17,7 +17,8 @@ class MessageRepository:
         timestamp: datetime,
         status: str = "received",
         ai_processed: bool = False,
-        ai_response: Optional[str] = None
+        ai_response: Optional[str] = None,
+        session_id: Optional[int] = None  # Nuevo parámetro
     ):
         """Crea un nuevo mensaje en la base de datos"""
         message = Message(
@@ -29,7 +30,8 @@ class MessageRepository:
             timestamp=timestamp,
             status=status,
             ai_processed=ai_processed,
-            ai_response=ai_response
+            ai_response=ai_response,
+            session_id=session_id  # Añadir a la creación
         )
         db.add(message)
         db.commit()
@@ -59,5 +61,16 @@ class MessageRepository:
             .filter(Message.contact_id == contact_id)
             .order_by(Message.timestamp.desc())
             .limit(limit * 2)
+            .all()
+        )
+    
+    @staticmethod
+    def get_session_history(db: Session, session_id: int, limit: int = 10) -> List[Message]:
+        """Obtiene el historial de mensajes de una sesión específica"""
+        return (
+            db.query(Message)
+            .filter(Message.session_id == session_id)
+            .order_by(Message.timestamp.asc())  # Orden cronológico: del más antiguo al más reciente
+            .limit(limit)
             .all()
         )

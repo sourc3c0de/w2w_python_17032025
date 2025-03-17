@@ -11,6 +11,8 @@ from app.models.whatsapp_model import (
     WhatsAppTextContent
 )
 from app.services.gemini_service import GeminiService
+# Importar el repositorio de sesiones
+from app.repositories.session_repository import SessionRepository
 
 logger = logging.getLogger(__name__)
 
@@ -45,16 +47,31 @@ class WhatsAppService:
             # Obtener o crear contacto
             contact = ContactRepository.get_or_create(db, sender_id, sender_id, profile_name)
             
+            # Cerrar sesiones inactivas para todos los usuarios (cada vez que alguien envía un mensaje)
+            SessionRepository.close_inactive_sessions(db, timeout_minutes=30)
+            
+            # Obtener o crear una sesión activa para este contacto
+            active_session = SessionRepository.get_or_create_active_session(db, contact.id)
+            
             # Procesar según tipo de mensaje
             content = ""
             if message_type == "text" and "text" in message:
                 content = message.get("text", {}).get("body", "")
                 logger.info(f"Received text message from {sender_id}: {content}")
+                
+                # Verificar si es un comando para cerrar sesión
+                if content.lower() in ["/cerrar", "/salir", "/finalizar", "/adios", "/exit", "/close"]:
+                    await WhatsAppService.close_user_session(sender_id, db)
+                    return  # Terminar aquí, ya no procesamos más
+                    
             else:
                 content = f"Mensaje de tipo {message_type} recibido"
                 logger.info(f"Received non-text message: {message_type}")
             
-            # Guardar mensaje en base de datos
+            # Actualizar actividad de la sesión
+            SessionRepository.update_last_activity(db, active_session.id)
+            
+            # Guardar mensaje en base de datos (ahora con session_id)
             MessageRepository.create(
                 db=db,
                 wa_message_id=wa_message_id,
@@ -63,13 +80,14 @@ class WhatsAppService:
                 message_type=message_type,
                 content=content,
                 timestamp=timestamp,
-                status="received"
+                status="received",
+                session_id=active_session.id  # Asociar con la sesión
             )
             
             # Solo procesamos con Gemini si es mensaje de texto
             if message_type == "text":
-                # Obtener historial de conversación
-                messages = MessageRepository.get_conversation_history(db, contact.id)
+                # Obtener historial de la SESIÓN actual (no de todo el contacto)
+                messages = MessageRepository.get_session_history(db, active_session.id, limit=5)
                 
                 # Formatear el mensaje para la API de Gemini
                 conversation_history = []
@@ -86,7 +104,7 @@ class WhatsAppService:
                 # Enviar respuesta a través de WhatsApp
                 response_data = await WhatsAppService.send_message(sender_id, ai_response)
                                 
-                # Guardar mensaje de respuesta en BD
+                # Guardar mensaje de respuesta en BD (con session_id)
                 if response_data and "messages" in response_data:
                     outgoing_wa_id = response_data.get("messages", [{}])[0].get("id", "unknown")
                     MessageRepository.create(
@@ -99,7 +117,8 @@ class WhatsAppService:
                         timestamp=datetime.now(timezone.utc),
                         status="sent",
                         ai_processed=True,
-                        ai_response=ai_response
+                        ai_response=ai_response,
+                        session_id=active_session.id  # Asociar con la sesión
                     )
         
         except Exception as e:
@@ -161,3 +180,71 @@ class WhatsAppService:
     def verify_webhook_token(mode: str, token: str) -> bool:
         """Verifica si el token del webhook es válido"""
         return mode == "subscribe" and token == settings.VERIFY_TOKEN
+
+    # Añadir este nuevo método para cerrar sesiones
+    @staticmethod
+    async def close_user_session(sender_id: str, db: Session):
+        """
+        Cierra la sesión activa de un usuario, genera un resumen y envía un mensaje de confirmación.
+        """
+        try:
+            # Buscar el contacto
+            contact = ContactRepository.get_by_wa_id(db, sender_id)
+            
+            if not contact:
+                logger.warning(f"Intento de cerrar sesión para usuario no encontrado: {sender_id}")
+                return {"status": "error", "message": "Usuario no encontrado"}
+            
+            # Buscar la sesión activa
+            active_session = SessionRepository.get_active_session(db, contact.id)
+            
+            if not active_session:
+                await WhatsAppService.send_message(
+                    sender_id, 
+                    "No tienes una sesión activa en este momento."
+                )
+                return {"status": "warning", "message": "No hay sesión activa"}
+            
+            # Obtener los mensajes de la sesión
+            messages = MessageRepository.get_session_history(db, active_session.id, limit=20)
+            
+            # Generar un resumen de la conversación usando Gemini
+            conversation_text = ""
+            for msg in messages:
+                role = "Usuario" if msg.direction == "incoming" else "Asistente"
+                conversation_text += f"{role}: {msg.content}\n"
+            
+            summary_prompt = f"""
+            Por favor, genera un resumen conciso de la siguiente conversación entre un usuario y un asistente.
+            Resalta: 1) El propósito principal de la conversación, 2) Cualquier decisión o información importante compartida,
+            3) Si se completó alguna tarea o transacción. Limita el resumen a 2-3 frases cortas.
+            
+            Conversación:
+            {conversation_text}
+            
+            Resumen:
+            """
+            
+            session_summary = await GeminiService.generate_response(summary_prompt, [])
+            
+            # Guardar el resumen en el campo context
+            SessionRepository.close_session(
+                db, 
+                active_session.id, 
+                status="closed_by_user",
+                context=session_summary
+            )
+            
+            # Enviar mensaje de confirmación
+            confirmation_message = (
+                "Tu sesión ha sido cerrada correctamente. "
+                "Si necesitas ayuda nuevamente, no dudes en escribirnos."
+            )
+            await WhatsAppService.send_message(sender_id, confirmation_message)
+            
+            logger.info(f"Sesión {active_session.id} cerrada para {contact.name} con resumen: {session_summary[:50]}...")
+            return {"status": "success", "session_id": active_session.id, "summary": session_summary}
+        
+        except Exception as e:
+            logger.error(f"Error cerrando sesión: {str(e)}", exc_info=True)
+            return {"status": "error", "message": str(e)}

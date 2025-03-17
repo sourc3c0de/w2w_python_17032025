@@ -25,6 +25,7 @@ if config.config_file_name is not None:
 # Importar los modelos para que Alembic los detecte
 from app.models.contact import Contact
 from app.models.message import Message
+from app.models.conversation_session import ConversationSession
 from app.database.db import Base
 
 target_metadata = Base.metadata

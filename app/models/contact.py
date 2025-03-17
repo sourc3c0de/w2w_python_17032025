@@ -16,5 +16,8 @@ class Contact(Base):
     # Relación con el modelo de mensajes
     messages = relationship("Message", back_populates="contact")
     
+    # Añadir esto a tu modelo Contact existente
+    sessions = relationship("ConversationSession", back_populates="contact")
+    
     def __repr__(self):
         return f"<Contact(id={self.id}, name={self.name}, phone_number={self.phone_number})>"
