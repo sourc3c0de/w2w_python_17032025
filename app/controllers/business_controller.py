@@ -12,7 +12,9 @@ class BusinessController:
     @staticmethod
     def create_business(db: Session, business_data: BusinessCreate) -> BusinessInDB:
         """Crea un nuevo negocio"""
-        business = BusinessRepository.create(db, business_data.dict(exclude_unset=True))
+        # Usar model_dump() en lugar de dict() para Pydantic v2
+        data_dict = business_data.model_dump(exclude_unset=True)
+        business = BusinessRepository.create(db, data_dict)
         return BusinessInDB.model_validate(business)
     
     @staticmethod
@@ -32,9 +34,11 @@ class BusinessController:
     @staticmethod
     def update_business(db: Session, business_id: int, business_data: BusinessUpdate) -> Optional[BusinessInDB]:
         """Actualiza un negocio existente"""
-        business = BusinessRepository.update(db, business_id, business_data.dict(exclude_unset=True))
+        # Usar model_dump() en lugar de dict() para Pydantic v2
+        data_dict = business_data.model_dump(exclude_unset=True)
+        business = BusinessRepository.update(db, business_id, data_dict)
         if business:
-            return BusinessInDB.model_validate(business)
+            return BusinessInDB.model_validate(business)  # Usar model_validate() en lugar de from_orm()
         return None
     
     @staticmethod

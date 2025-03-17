@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, HttpUrl
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 
@@ -10,8 +10,8 @@ class BusinessBase(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
-    website: Optional[HttpUrl] = None
-    logo_url: Optional[str] = None
+    website: Optional[str] = None  # Cambiado de HttpUrl a str
+    logo_url: Optional[str] = None  # Cambiado de HttpUrl a str
     system_prompt: Optional[str] = None
 
 class BusinessCreate(BusinessBase):
@@ -31,4 +31,4 @@ class BusinessInDB(BusinessBase):
     is_active: bool
     
     class Config:
-        from_attributes = True  # Corregido: antes era orm_mode = True
+        from_attributes = True  # Corregido para Pydantic V2

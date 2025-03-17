@@ -20,6 +20,12 @@ class BusinessRepository:
         Returns:
             Business: Objeto de negocio creado
         """
+        # Convertir los tipos Pydantic a tipos nativos si es necesario
+        if isinstance(business_data.get('website'), dict) and 'url' in business_data['website']:
+            business_data['website'] = business_data['website']['url']
+        if isinstance(business_data.get('logo_url'), dict) and 'url' in business_data['logo_url']:
+            business_data['logo_url'] = business_data['logo_url']['url']
+        
         business = Business(**business_data)
         db.add(business)
         db.commit()
